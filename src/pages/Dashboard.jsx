@@ -1,5 +1,6 @@
-import { useContext } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { chamadoService } from '../services/chamadoService';
 import { 
     LogOut, 
     LifeBuoy, 
@@ -9,18 +10,55 @@ import {
     Plus, 
     Search, 
     Filter,
-    User
+    User,
+    RefreshCw
 } from 'lucide-react';
 
 export function Dashboard() {
     const { usuario, logout } = useContext(AuthContext);
 
-    // Mock inicial de chamados para visualização da interface
-    const chamadosExemplo = [
-        { id: 'OS-1001', titulo: 'Erro ao emitir relatório PDF', cliente: 'Tech Solutions', prioridade: 'ALTA', status: 'EM_ANDAMENTO', data: '19/10/2026' },
-        { id: 'OS-1002', titulo: 'Impressora de etiquetas offline', cliente: 'Logística Express', prioridade: 'MEDIA', status: 'ABERTO', data: '19/10/2026' },
-        { id: 'OS-1003', titulo: 'Reset de senha de usuário', cliente: 'Financeiro Corp', prioridade: 'BAIXA', status: 'CONCLUIDO', data: '18/10/2026' },
-    ];
+    // Estados para dados reais da API
+    const [chamados, setChamados] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [erro, setErro] = useState('');
+    const [busca, setBusca] = useState('');
+
+    useEffect(() => {
+        carregarChamados();
+    }, []);
+
+    const carregarChamados = async () => {
+        try {
+            setLoading(true);
+            setErro('');
+            const dados = await chamadoService.listarTodos();
+            setChamados(dados);
+        } catch (err) {
+            console.error('Erro ao carregar chamados:', err);
+            setErro('Não foi possível carregar os chamados da API.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Filtro de busca local por título ou ID
+    const chamadosFiltrados = chamados.filter(c => 
+        c.titulo?.toLowerCase().includes(busca.toLowerCase()) ||
+        c.id?.toString().toLowerCase().includes(busca.toLowerCase()) ||
+        c.clienteNome?.toLowerCase().includes(busca.toLowerCase())
+    );
+
+    // Cálculo dinâmico dos cards de métricas
+    const qtdAbertos = chamados.filter(c => c.status === 'ABERTO').length;
+    const qtdEmAndamento = chamados.filter(c => c.status === 'EM_ANDAMENTO').length;
+    const qtdConcluidos = chamados.filter(c => c.status === 'CONCLUIDO').length;
+
+    // Formatação amigável de data
+    const formatarData = (dataArray) => {
+        if (!dataArray) return '-';
+        if (typeof dataArray === 'string') return new Date(dataArray).toLocaleDateString('pt-BR');
+        return new Date(dataArray).toLocaleDateString('pt-BR');
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -77,22 +115,38 @@ export function Dashboard() {
                         <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Painel Principal</h2>
                         <p className="text-sm text-gray-500">Acompanhe as ordens de serviço e chamados ativos</p>
                     </div>
-                    <button className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm hover:shadow transition-all cursor-pointer">
-                        <Plus className="w-4 h-4" />
-                        <span>Novo Chamado</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={carregarChamados}
+                            className="p-2.5 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl shadow-xs transition-all cursor-pointer"
+                            title="Recarregar Chamados"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
+                        </button>
+                        <button className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm hover:shadow transition-all cursor-pointer">
+                            <Plus className="w-4 h-4" />
+                            <span>Novo Chamado</span>
+                        </button>
+                    </div>
                 </div>
 
-                {/* Cards de Métricas */}
+                {/* Mensagem de Erro se houver */}
+                {erro && (
+                    <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex justify-between items-center">
+                        <span>{erro}</span>
+                        <button onClick={carregarChamados} className="underline font-semibold cursor-pointer">Tentar novamente</button>
+                    </div>
+                )}
+
+                {/* Cards de Métricas (Calculados dinamicamente) */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    
                     <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center gap-4">
                         <div className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
                             <Clock className="w-6 h-6" />
                         </div>
                         <div>
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Em Aberto</p>
-                            <h3 className="text-2xl font-bold text-gray-900">8</h3>
+                            <h3 className="text-2xl font-bold text-gray-900">{qtdAbertos}</h3>
                         </div>
                     </div>
 
@@ -102,7 +156,7 @@ export function Dashboard() {
                         </div>
                         <div>
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Em Andamento</p>
-                            <h3 className="text-2xl font-bold text-gray-900">3</h3>
+                            <h3 className="text-2xl font-bold text-gray-900">{qtdEmAndamento}</h3>
                         </div>
                     </div>
 
@@ -111,11 +165,10 @@ export function Dashboard() {
                             <CheckCircle2 className="w-6 h-6" />
                         </div>
                         <div>
-                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Concluídos Hoje</p>
-                            <h3 className="text-2xl font-bold text-gray-900">14</h3>
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Concluídos</p>
+                            <h3 className="text-2xl font-bold text-gray-900">{qtdConcluidos}</h3>
                         </div>
                     </div>
-
                 </div>
 
                 {/* Tabela de Chamados */}
@@ -127,7 +180,9 @@ export function Dashboard() {
                             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
-                                placeholder="Buscar por código ou título..."
+                                value={busca}
+                                onChange={(e) => setBusca(e.target.value)}
+                                placeholder="Buscar por título ou cliente..."
                                 className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 transition-all"
                             />
                         </div>
@@ -146,43 +201,61 @@ export function Dashboard() {
                                     <th className="px-6 py-3.5">Título / Solicitante</th>
                                     <th className="px-6 py-3.5">Prioridade</th>
                                     <th className="px-6 py-3.5">Status</th>
-                                    <th className="px-6 py-3.5">Data</th>
+                                    <th className="px-6 py-3.5">Data Abertura</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-gray-700">
-                                {chamadosExemplo.map((chamado) => (
-                                    <tr key={chamado.id} className="hover:bg-gray-50/60 transition-colors cursor-pointer">
-                                        <td className="px-6 py-4 font-mono font-medium text-blue-600">{chamado.id}</td>
-                                        <td className="px-6 py-4">
-                                            <p className="font-semibold text-gray-900">{chamado.titulo}</p>
-                                            <p className="text-xs text-gray-400">{chamado.cliente}</p>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                                            Carregando chamados da API...
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                chamado.prioridade === 'ALTA' ? 'bg-red-50 text-red-700 border border-red-100' :
-                                                chamado.prioridade === 'MEDIA' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                                                'bg-gray-100 text-gray-700'
-                                            }`}>
-                                                {chamado.prioridade}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                chamado.status === 'CONCLUIDO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                                chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                                                'bg-amber-50 text-amber-700 border border-amber-100'
-                                            }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                                    chamado.status === 'CONCLUIDO' ? 'bg-emerald-500' :
-                                                    chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-500' :
-                                                    'bg-amber-500'
-                                                }`} />
-                                                {chamado.status.replace('_', ' ')}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-xs text-gray-500">{chamado.data}</td>
                                     </tr>
-                                ))}
+                                ) : chamadosFiltrados.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                                            Nenhum chamado encontrado.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    chamadosFiltrados.map((chamado) => (
+                                        <tr key={chamado.id} className="hover:bg-gray-50/60 transition-colors cursor-pointer">
+                                            <td className="px-6 py-4 font-mono text-xs font-medium text-blue-600 truncate max-w-[120px]">
+                                                {chamado.id}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <p className="font-semibold text-gray-900">{chamado.titulo}</p>
+                                                <p className="text-xs text-gray-400">{chamado.clienteNome || 'Cliente Não Informado'}</p>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                    chamado.prioridade === 'ALTA' ? 'bg-red-50 text-red-700 border border-red-100' :
+                                                    chamado.prioridade === 'MEDIA' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                                                    'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                    {chamado.prioridade}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                    chamado.status === 'CONCLUIDO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                                    chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                                    'bg-amber-50 text-amber-700 border border-amber-100'
+                                                }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                                        chamado.status === 'CONCLUIDO' ? 'bg-emerald-500' :
+                                                        chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-500' :
+                                                        'bg-amber-500'
+                                                    }`} />
+                                                    {chamado.status ? chamado.status.replace('_', ' ') : 'ABERTO'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs text-gray-500">
+                                                {formatarData(chamado.dataAbertura)}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
