@@ -1,18 +1,19 @@
 import { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { chamadoService } from '../services/chamadoService';
-import { 
-    LogOut, 
-    LifeBuoy, 
-    CheckCircle2, 
-    Clock, 
-    AlertCircle, 
-    Plus, 
-    Search, 
+import {
+    LogOut,
+    LifeBuoy,
+    CheckCircle2,
+    Clock,
+    AlertCircle,
+    Plus,
+    Search,
     Filter,
     User,
     RefreshCw
 } from 'lucide-react';
+import { NovoChamadoModal } from '../components/NovoChamadoModal';
 
 export function Dashboard() {
     const { usuario, logout } = useContext(AuthContext);
@@ -22,6 +23,7 @@ export function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState('');
     const [busca, setBusca] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
         carregarChamados();
@@ -42,7 +44,7 @@ export function Dashboard() {
     };
 
     // Filtro de busca local por título ou ID
-    const chamadosFiltrados = chamados.filter(c => 
+    const chamadosFiltrados = chamados.filter(c =>
         c.titulo?.toLowerCase().includes(busca.toLowerCase()) ||
         c.id?.toString().toLowerCase().includes(busca.toLowerCase()) ||
         c.clienteNome?.toLowerCase().includes(busca.toLowerCase())
@@ -62,11 +64,11 @@ export function Dashboard() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            
+
             {/* Topbar / Header */}
             <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    
+
                     {/* Brand */}
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-600 text-white rounded-xl shadow-sm">
@@ -108,7 +110,7 @@ export function Dashboard() {
 
             {/* Conteúdo Principal */}
             <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-                
+
                 {/* Header da Página */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
@@ -116,18 +118,24 @@ export function Dashboard() {
                         <p className="text-sm text-gray-500">Acompanhe as ordens de serviço e chamados ativos</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button 
+                        <button
                             onClick={carregarChamados}
                             className="p-2.5 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl shadow-xs transition-all cursor-pointer"
                             title="Recarregar Chamados"
                         >
                             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
                         </button>
-                        <button className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm hover:shadow transition-all cursor-pointer">
+                        <button className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm hover:shadow transition-all cursor-pointer" onClick={() => setIsModalOpen(true)}>
                             <Plus className="w-4 h-4" />
                             <span>Novo Chamado</span>
                         </button>
                     </div>
+                    <NovoChamadoModal
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        onChamadoCriado={carregarChamados}
+                        usuarioLogadoId={usuario?.id}
+                    />
                 </div>
 
                 {/* Mensagem de Erro se houver */}
@@ -173,7 +181,7 @@ export function Dashboard() {
 
                 {/* Tabela de Chamados */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
-                    
+
                     {/* Filtros da Tabela */}
                     <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="relative w-full sm:w-80">
@@ -228,25 +236,22 @@ export function Dashboard() {
                                                 <p className="text-xs text-gray-400">{chamado.clienteNome || 'Cliente Não Informado'}</p>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                    chamado.prioridade === 'ALTA' ? 'bg-red-50 text-red-700 border border-red-100' :
-                                                    chamado.prioridade === 'MEDIA' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                                                    'bg-gray-100 text-gray-700'
-                                                }`}>
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${chamado.prioridade === 'ALTA' ? 'bg-red-50 text-red-700 border border-red-100' :
+                                                        chamado.prioridade === 'MEDIA' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                                                            'bg-gray-100 text-gray-700'
+                                                    }`}>
                                                     {chamado.prioridade}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                    chamado.status === 'CONCLUIDO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                                    chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                                                    'bg-amber-50 text-amber-700 border border-amber-100'
-                                                }`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${
-                                                        chamado.status === 'CONCLUIDO' ? 'bg-emerald-500' :
-                                                        chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-500' :
-                                                        'bg-amber-500'
-                                                    }`} />
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${chamado.status === 'CONCLUIDO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                                        chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                                            'bg-amber-50 text-amber-700 border border-amber-100'
+                                                    }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${chamado.status === 'CONCLUIDO' ? 'bg-emerald-500' :
+                                                            chamado.status === 'EM_ANDAMENTO' ? 'bg-blue-500' :
+                                                                'bg-amber-500'
+                                                        }`} />
                                                     {chamado.status ? chamado.status.replace('_', ' ') : 'ABERTO'}
                                                 </span>
                                             </td>
